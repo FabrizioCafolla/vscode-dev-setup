@@ -1,0 +1,9 @@
+# justfile.local project-specific just commands
+#
+# This file is imported by justfile and is NOT managed by the template update script.
+# Customize freely. It is gitignored in the template repository.
+#
+# Example:
+#   [group('dev')]
+#   run:
+#     @python -m myapp

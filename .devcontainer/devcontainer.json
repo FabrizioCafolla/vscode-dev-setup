@@ -1,0 +1,60 @@
+{
+  "name": "VSCode Dev Setup",
+  "dockerComposeFile": ["docker-compose.yml", "docker-compose.local.yml"],
+  "service": "devcontainer",
+  "workspaceFolder": "/workspace",
+  // NOTE: workspaceMount is NOT available in Compose mode (devcontainer spec schema).
+  // The workspace volume is defined in docker-compose.yml instead.
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false
+    },
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "installOhMyZsh": true,
+      "configureZshAsDefaultShell": true,
+      "username": "root"
+    },
+    "ghcr.io/fabriziocafolla/scaffold-ai/scaffold-ai:latest": {
+      "installDefaults": false // Set to true to import Scaffold AI files
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // GitHub & Copilot
+        "github.copilot-chat",
+        "github.vscode-pull-request-github",
+        "github.vscode-github-actions",
+        "Anthropic.claude-code",
+
+        // Markdown (documentation)
+        "yzhang.markdown-all-in-one",
+        "davidanson.vscode-markdownlint",
+        "bierner.markdown-mermaid",
+
+        // Code Quality & Formatting
+        "esbenp.prettier-vscode",
+        "timonwong.shellcheck",
+
+        // Development Tools
+        "redhat.vscode-yaml",
+        "ms-vscode.vscode-typescript-next",
+        "ms-python.python",
+        "ms-python.debugpy",
+        "ms-python.vscode-python-envs",
+        "ms-vscode.makefile-tools",
+        "mechatroner.rainbow-csv",
+        "ms-azuretools.vscode-containers",
+        "eamodio.gitlens"
+      ]
+    }
+  },
+  "containerEnv": {
+    "WORKSPACE_DIR": "/workspace"
+  },
+  "postStartCommand": "just setup",
+  "remoteUser": "root",
+  "shutdownAction": "stopCompose"
+}

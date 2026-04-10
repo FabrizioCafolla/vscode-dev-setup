@@ -1,0 +1,120 @@
+#!/bin/bash
+
+# ── Shell plugins ─────────────────────────────────────────────────────────────
+
+if [[ -d "${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}"/plugins/zsh-autosuggestions ]]; then
+  echo "[INFO] zsh-autosuggestions already installed"
+else
+  echo "[INFO] Installing zsh-autosuggestions"
+  git clone https://github.com/zsh-users/zsh-autosuggestions "${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}"/plugins/zsh-autosuggestions
+fi
+
+if [[ -d "${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}"/plugins/zsh-syntax-highlighting ]]; then
+  echo "[INFO] zsh-syntax-highlighting already installed"
+else
+  echo "[INFO] Installing zsh-syntax-highlighting"
+  git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}"/plugins/zsh-syntax-highlighting
+fi
+
+mkdir -p ~/.zsh/completions
+
+if [[ -f ~/.zsh/completions/_just ]]; then
+  echo "[INFO] just completions already installed"
+else
+  echo "[INFO] Installing just completions"
+  curl -o ~/.zsh/completions/_just https://raw.githubusercontent.com/casey/just/master/completions/just.zsh
+fi
+
+# ── Optional tools (update only installation is handled by the Dockerfile) ──
+
+if command -v claude &>/dev/null; then
+  echo "[INFO] Updating claude-code: $(claude --version)"
+  claude update || echo "[WARN] Failed to update claude-code, continuing"
+else
+  echo "[INFO] claude-code not installed, skipping"
+fi
+
+if command -v copilot &>/dev/null; then
+  echo "[INFO] Updating copilot: $(copilot --version)"
+  yes | copilot update || echo "[WARN] Failed to update copilot, continuing"
+else
+  echo "[INFO] copilot not installed, skipping"
+fi
+
+if command -v opencode &>/dev/null; then
+  echo "[INFO] Updating opencode: $(opencode --version)"
+  opencode upgrade || echo "[WARN] Failed to update opencode, continuing"
+else
+  echo "[INFO] opencode not installed, skipping"
+fi
+
+if command -v openspec &>/dev/null; then
+  echo "[INFO] Updating openspec: $(openspec --version)"
+  openspec update --force || echo "[ERROR] Failed to update openspec."
+else
+  if [[ "${OPENSPEC_ENABLE:-true}" == "true" ]]; then
+    echo "[INFO] openspec not installed, installing"
+    npm install -g @fission-ai/openspec@latest \
+      || { echo "[ERROR] Failed to install openspec globally with npm."; exit 1; }
+  else
+    echo "[INFO] openspec not installed and OPENSPEC_ENABLE is false, skipping"
+  fi
+fi
+
+# ── LLaMA.cpp check ───────────────────────────────────────────────────────────
+
+if [[ "${LLAMA_CPP_ENABLE:-false}" == "true" ]]; then
+  if command -v llama-cli &>/dev/null; then
+    echo "[INFO] llama-cli available: $(llama-cli --version 2>&1 | head -1)"
+  else
+    echo "[WARN] LLAMA_CPP_ENABLE=true but llama-cli not found rebuild the container"
+  fi
+fi
+
+# ── Pre-commit ────────────────────────────────────────────────────────────────
+
+if [[ -f "${WORKSPACE_DIR:-/workspace}/.pre-commit-config.yaml" ]]; then
+  if ! command -v pre-commit >/dev/null 2>&1; then
+    echo "[INFO] pre-commit not found, installing"
+
+    if command -v uv >/dev/null 2>&1; then
+      uv tool install pre-commit || uv tool upgrade pre-commit
+      export PATH="$HOME/.local/bin:$PATH"
+    elif command -v pipx >/dev/null 2>&1; then
+      pipx install pre-commit || pipx upgrade pre-commit
+    elif command -v pip3 >/dev/null 2>&1; then
+      pip3 install --user pre-commit
+      export PATH="$HOME/.local/bin:$PATH"
+    else
+      echo "[ERROR] No installer available (uv, pipx, or pip3)" >&2
+      exit 1
+    fi
+  fi
+
+  if ! command -v pre-commit >/dev/null 2>&1; then
+    echo "[ERROR] pre-commit installed but not found in PATH" >&2
+    echo "[INFO] Add ~/.local/bin to PATH and run again" >&2
+    exit 1
+  fi
+
+  echo "[INFO] Installing pre-commit hooks"
+  pre-commit install --install-hooks
+
+  echo "[INFO] Running hooks for the first time"
+  pre-commit run --all-files
+else
+  echo "[WARN] .pre-commit-config.yaml not found, skipping pre-commit install"
+fi
+
+# ── Project-specific setup ────────────────────────────────────────────────────
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCAL_SETUP="${SCRIPT_DIR}/setup-devcontainer.local.sh"
+
+if [[ -f "${LOCAL_SETUP}" ]]; then
+  echo "[INFO] Running project-specific setup: ${LOCAL_SETUP}"
+  # shellcheck source=/dev/null
+  source "${LOCAL_SETUP}"
+else
+  echo "[INFO] No project-specific setup found (${LOCAL_SETUP}), skipping"
+fi

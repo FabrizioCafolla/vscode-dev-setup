@@ -1,0 +1,14 @@
+.DS_Store
+node_modules
+dist
+build
+coverage
+logs
+*.log
+.env
+.vscode-dev-setup.lock
+scaffold-ai-cli.sh
+
+# [START] Scaffold AI
+.scaffold-ai.lock
+# [END] Scaffold AI
