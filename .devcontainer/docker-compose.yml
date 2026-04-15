@@ -14,7 +14,6 @@ services:
       - ../.devcontainer/cache/llama:/root/.llama:cached
       # Mount config files
       - ../.devcontainer/configs/.zshrc:/root/.zshrc:cached
-      - ../.devcontainer/configs/.zsh_history:/root/.zsh_history:cached
       - ../.devcontainer/configs/.aws:/root/.aws:cached
     network_mode: host
     privileged: true

@@ -1,6 +1,4 @@
-set dotenv-load := true
-set dotenv-path := ".env"
-
+import? 'justfile.project'
 import? 'justfile.local'
 
 default:
@@ -15,19 +13,10 @@ help:
 setup:
   @echo "[INFO] Setup"
   @just setup-devcontainer
-  @just load-env
 
 [group('setup')]
 setup-devcontainer:
   @.devcontainer/scripts/setup-devcontainer.sh
-
-[group('setup')]
-load-env:
-  @.devcontainer/scripts/load-env.sh
-
-[group('setup')]
-setup-template *args:
-  @./cli.sh {{ args }}
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -43,19 +32,15 @@ claude-login:
 opencode-login:
   @opencode auth login
 
-[group('auth')]
-aws-login:
-  @aws login
-
-[group('auth')]
-aws-login-sso session_name:
-  @aws sso login --sso-session {{session_name}}
-
 # ── Tools ─────────────────────────────────────────────────────────────────────
 
 [group('tools')]
 pre-commit-run:
   @pre-commit run --all-files
+
+[group('tools')]
+vscode-dev-setup-cli *args:
+  @./vscode-dev-setup-cli.sh {{ args }}
 
 [group('tools')]
 scaffold-ai-cli *args:

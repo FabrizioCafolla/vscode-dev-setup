@@ -12,12 +12,11 @@ services:
     build:
       args:
         - CLAUDE_CLI_ENABLE=false
-        - GITHUB_COPILOT_CLI_ENABLE=false
         - OPENCODE_ENABLE=false
         - OPENSPEC_ENABLE=false
         - AWS_CLI_ENABLE=false
+        - GITHUB_COPILOT_CLI_ENABLE=false
+        - GH_CLI_ENABLE=false
         - KIND_ENABLE=false
         - LLAMA_CPP_ENABLE=false
-    volumes:
-      # Mount SSH keys
-      - ${HOME}/.ssh:/root/.ssh:ro,cached
+        - TERRAFORM_ENABLE=false

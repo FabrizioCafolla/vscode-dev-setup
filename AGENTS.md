@@ -4,7 +4,7 @@
 
 This repository was bootstrapped from the [vscode-dev-setup](https://github.com/FabrizioCafolla/vscode-dev-setup) template.
 
-The `cli.sh` script is used to keep the template-managed files in sync with the upstream template. Run `./cli.sh check` to see what changed, and `./cli.sh update` to apply updates whenever the template is updated.
+The `vscode-dev-setup-cli.sh` script keeps template-managed files in sync with upstream. Run `./vscode-dev-setup-cli.sh check` to see what changed, and `./vscode-dev-setup-cli.sh update` to apply updates.
 
 Instructions and context for AI agents (Claude Code, GitHub Copilot, etc.) working in this repository.
 
@@ -20,23 +20,33 @@ Before anything else: you do not know everything, and you should not act like yo
 
 ## Tech stack
 
-The development environment is DevContainer-based. The `.devcontainer/Dockerfile` uses a multi-stage build. The first stage (`base`) installs the core runtimes that are **always available**: Python 3.13 (managed by `uv`), Node.js 24, and Terraform 1.14. These are not optional they are copied from upstream images and always present in the final container. The same stage also installs OS-level tools like `just` (task runner) and system utilities. `pre-commit` is configured at the project level (`.pre-commit-config.yaml`) and always available. GitHub CLI (`gh`) is installed separately as a devcontainer feature defined in `devcontainer.json`.
+The development environment is DevContainer-based. The `.devcontainer/Dockerfile` uses a multi-stage build. The first stage (`base`) installs the core runtimes that are **always available**: Python 3.13 (managed by `uv`) and Node.js 24. These are copied from upstream images and always present in the final container. The same stage also installs OS-level tools like `just` (task runner) and system utilities. `pre-commit` is configured at the project level (`.pre-commit-config.yaml`) and always available. GitHub CLI (`gh`) is installed separately as a devcontainer feature defined in `devcontainer.json`.
 
-The second stage (`tools`) is where all **optional tools** live. Each tool is gated behind a build arg (e.g. `AWS_CLI_ENABLE`, `CLAUDE_CLI_ENABLE`, `KIND_ENABLE`). The Dockerfile defines defaults for these args, but **the actual values used in this project are determined by `.devcontainer/docker-compose.local.yml`**, which overrides them at build time. To know which tools are actually installed, always check `docker-compose.local.yml` that file is the source of truth, not the Dockerfile defaults.
+The second stage (`tools`) is where all **optional tools** live. Each tool is gated behind a build arg (e.g. `AWS_CLI_ENABLE`, `CLAUDE_CLI_ENABLE`, `KIND_ENABLE`, `TERRAFORM_ENABLE`). Terraform is installed via `tfenv`, which allows switching versions inside the container with `tfenv install <version> && tfenv use <version>`. The Dockerfile defines defaults for these args, but **the actual values used in this project are determined by `.devcontainer/docker-compose.project.yml` (project defaults) and `.devcontainer/docker-compose.local.yml` (local overrides)**, which override at build time via Compose merge. To know which tools are actually installed, check these compose files — they are the source of truth, not the Dockerfile defaults.
 
 ## Development environment
 
 All work happens inside the DevContainer. Do not assume tools are installed on the host machine. The container starts via `just setup`, which is triggered automatically by `postStartCommand`. SSH keys are mounted read-only from the host. AWS configuration lives in `.devcontainer/configs/.aws/`, and AI tool caches (Claude, Copilot) are persisted in `.devcontainer/cache/`.
 
-### Template files vs `.local` overrides
+### Three-layer file organization
 
-This project follows a strict separation between **template-managed files** and **project-specific `.local` files**. Template files are updated automatically by the upstream `vscode-dev-setup` template and must not be edited manually. Project-specific customizations go exclusively in the `.local` counterparts, which are never overwritten by template updates.
+This project follows a **three-layer model** for configuration:
 
-`justfile` defines the base commands (`setup`, `pre-commit-run`, auth helpers, etc.) and uses `import? 'justfile.local'` to optionally load `justfile.local`. Any project-specific commands must go in `justfile.local` never modify `justfile` directly.
+1. **BASE** (template-managed, auto-updated): `docker-compose.yml`, `setup-devcontainer.sh`, `justfile` — updated when you run `update-devcontainer.sh`
+2. **PROJECT** (versionated, `.project` files): Shared defaults for all team members — `justfile.project`, `setup-devcontainer.project.sh`, `docker-compose.project.yml`, `.env.project`
+3. **LOCAL** (dev-specific, `.local` files, gitignored): Personal customizations that are never committed — `justfile.local`, `setup-devcontainer.local.sh`, `docker-compose.local.yml`, `.env`
 
-`.devcontainer/docker-compose.yml` defines the service configuration, volumes, and base build context. `.devcontainer/docker-compose.local.yml` is merged on top of it (as declared in `devcontainer.json`) and is where build args are overridden to enable or disable optional tools. It can also add project-specific volumes or services.
+### Template files and `.project`/`.local` pattern
 
-`.devcontainer/scripts/setup-devcontainer.sh` runs the base post-start initialization and sources `.devcontainer/scripts/setup-devcontainer.local.sh` at the end. Any project-specific initialization (installing packages, starting services, downloading data) should go in the `.local` script.
+- **Base template files** (`justfile`, `docker-compose.yml`, etc.) are auto-updated and must not be edited manually
+- **`.project` files** (versionated) contain project-wide defaults and are committed to git — all team members share these
+- **`.local` files** (gitignored) contain personal/local customizations — never committed, each dev can customize freely
+
+**Examples:**
+
+- `justfile` (base) defines common commands, then `import? 'justfile.project'` optionally loads project defaults, then `import? 'justfile.local'` optionally loads local commands
+- `docker-compose.yml` (base) + `docker-compose.project.yml` (project) + `docker-compose.local.yml` (local) merge via Compose
+- `.env.project` (versionated, project defaults) + `.env` (gitignored, local overrides) are both loaded at container startup
 
 **Discover available commands with:**
 
@@ -46,10 +56,12 @@ just help
 
 ## What agents should avoid
 
-- Do not modify `.devcontainer/` base files (Dockerfile, docker-compose.yml, setup-devcontainer.sh) unless asked.
+- Do not modify `.devcontainer/` base files (Dockerfile, docker-compose.yml, setup-devcontainer.sh) unless asked — they are auto-updated by the template
+- Do not modify `.project` files unless making changes that should be shared with the team — these are versionated
+- Do edit `.local` files for personal/local customizations — these are gitignored and won't be committed
 - Do not install packages globally inside the container without updating the Dockerfile or devcontainer features
 
-- <!-- [vscode-dev-setup:END] -->
+<!-- [vscode-dev-setup:END] -->
 
 ## Project-specific context
 

@@ -1,13 +1,10 @@
-.DS_Store
-node_modules
-dist
-build
-coverage
-logs
-*.log
+# [vscode-dev-setup:START] managed by vscode-dev-setup template, do not edit manually
 .env
 .vscode-dev-setup.lock
-scaffold-ai-cli.sh
+*.local
+*.local.sh
+*.local.yml
+# [vscode-dev-setup:END]
 
 # [START] Scaffold AI
 .scaffold-ai.lock

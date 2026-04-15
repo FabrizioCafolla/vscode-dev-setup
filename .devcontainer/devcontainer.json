@@ -1,12 +1,15 @@
 {
   "name": "VSCode Dev Setup",
-  "dockerComposeFile": ["docker-compose.yml", "docker-compose.local.yml"],
+  "dockerComposeFile": [
+    "docker-compose.yml",
+    "docker-compose.project.yml",
+    "docker-compose.local.yml"
+  ],
   "service": "devcontainer",
   "workspaceFolder": "/workspace",
   // NOTE: workspaceMount is NOT available in Compose mode (devcontainer spec schema).
   // The workspace volume is defined in docker-compose.yml instead.
   "features": {
-    "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
       "moby": false
     },
@@ -47,7 +50,8 @@
         "ms-vscode.makefile-tools",
         "mechatroner.rainbow-csv",
         "ms-azuretools.vscode-containers",
-        "eamodio.gitlens"
+        "eamodio.gitlens",
+        "PKief.material-icon-theme"
       ]
     }
   },

@@ -32,7 +32,6 @@
   "git.autofetch": true,
   "git.confirmSync": false,
   "git.enableSmartCommit": true,
-  "git.terminalGitEditor": false,
   "git.untrackedChanges": "separate",
 
   "terminal.integrated.fontSize": 14,
@@ -89,7 +88,7 @@
   "workbench.editor.enablePreview": false,
   "workbench.startupEditor": "welcomePage",
   "workbench.colorTheme": "Dark+",
-  "workbench.iconTheme": "vs-seti",
+  "workbench.iconTheme": "material-icon-theme",
 
   "files.exclude": {
     "**/__pycache__": true,
@@ -114,5 +113,27 @@
     "npm": false,
     "/^docker\\b/": false,
     "rm": false
-  }
+  },
+
+  // Material Icon Theme - Custom folder colors
+  "material-icon-theme.folders.customClones": [
+    {
+      "name": "folder-green",
+      "base": "folder",
+      "color": "green-600",
+      "folderNames": ["workspace"]
+    },
+    {
+      "name": "folder-blue",
+      "base": "folder",
+      "color": "blue-500",
+      "folderNames": ["tools", ".devcontainer", "openspec"]
+    },
+    {
+      "name": "folder-orange",
+      "base": "folder",
+      "color": "orange-500",
+      "folderNames": [".claude", ".copilot", ".github", ".vscode"]
+    }
+  ]
 }

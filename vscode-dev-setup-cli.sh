@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# cli.sh check and update vscode-dev-setup template files
+# vscode-dev-setup-cli.sh — check and update vscode-dev-setup template files
 #
 # Usage:
-#   cli.sh <command> [OPTIONS]
-#   curl -fsSL https://raw.githubusercontent.com/FabrizioCafolla/vscode-dev-setup/main/cli.sh | bash -s -- <command> [OPTIONS]
+#   ./vscode-dev-setup-cli.sh <command> [OPTIONS]
+#   curl -fsSL https://raw.githubusercontent.com/FabrizioCafolla/vscode-dev-setup/main/vscode-dev-setup-cli.sh | bash -s -- <command> [OPTIONS]
 #
 # Commands:
 #   check     Show what would change (no modifications)
@@ -39,7 +39,7 @@ WORKSPACE_DIR="$(pwd)"
 
 usage() {
   cat <<EOF
-Usage: cli.sh <command> [OPTIONS]
+Usage: vscode-dev-setup-cli.sh <command> [OPTIONS]
 
 Commands:
   check     Show what would change (no modifications)
@@ -101,9 +101,15 @@ done
 # ── Workspace validation ──────────────────────────────────────────────────────
 
 if [[ ! -d "${WORKSPACE_DIR}/.devcontainer" ]]; then
-  echo "Error: .devcontainer/ not found in ${WORKSPACE_DIR}" >&2
-  echo "Run from your project root or use --workspace DIR" >&2
-  exit 1
+  if [[ $FORCE == true ]]; then
+    echo -e "${YELLOW}WARNING:${RESET} .devcontainer/ not found in ${WORKSPACE_DIR}, but --force is set. Proceeding anyway."
+    mkdir -p "${WORKSPACE_DIR}/.devcontainer"
+    echo ""
+  else
+    echo "Error: .devcontainer/ not found in ${WORKSPACE_DIR}" >&2
+    echo "Run from your project root or use --workspace DIR" >&2
+    exit 1
+  fi
 fi
 
 echo -e "${CYAN}${BOLD}vscode-dev-setup ${COMMAND}${RESET} (ref: ${GIT_REF})"
@@ -226,10 +232,9 @@ echo -e "${BOLD}REPLACE files (fully template-managed)${RESET}"
 process_replace ".devcontainer/Dockerfile"
 process_replace ".devcontainer/docker-compose.yml"
 process_replace ".devcontainer/scripts/setup-devcontainer.sh"
-process_replace ".devcontainer/scripts/load-env.sh"
 process_replace ".devcontainer/configs/.zshrc"
 process_replace "justfile"
-process_replace "cli.sh"
+process_replace "vscode-dev-setup-cli.sh"
 echo ""
 
 # ── MARKER files ──────────────────────────────────────────────────────────────
@@ -288,6 +293,8 @@ process_marker() {
 echo -e "${BOLD}MARKER files (partial template sections)${RESET}"
 process_marker "AGENTS.md" "\[vscode-dev-setup:START\]" "\[vscode-dev-setup:END\]"
 process_marker ".pre-commit-config.yaml" "\[vscode-dev-setup:START\]" "\[vscode-dev-setup:END\]"
+process_marker ".gitignore" "\[vscode-dev-setup:START\]" "\[vscode-dev-setup:END\]"
+process_marker ".devcontainer/Dockerfile" "\[vscode-dev-setup:START\]" "\[vscode-dev-setup:END\]"
 echo ""
 
 # ── DIFF-ONLY files ───────────────────────────────────────────────────────────
@@ -353,6 +360,7 @@ process_never_touch() {
 
   if [[ "${COMMAND}" == "check" ]]; then
     echo -e "${CYAN}WILL CREATE${RESET} ${rel_path} (does not exist)"
+    (( changes++ )) || true
     return
   fi
 
@@ -360,19 +368,51 @@ process_never_touch() {
     mkdir -p "$(dirname "${local_file}")"
     cp "${template_file}" "${local_file}"
   else
-    mkdir -p "${local_file}"
+    mkdir -p "$(dirname "${local_file}")"
+    touch "${local_file}"
   fi
   echo -e "${GREEN}CREATED${RESET} ${rel_path}"
   (( created++ )) || true
 }
 
+# ── CLEANUP: deprecated files removed between releases ────────────────────────
+
+DEPRECATED_FILES=(
+  ".devcontainer/scripts/load-env.sh"
+  ".devcontainer/configs/.env.local"
+  "update-devcontainer.sh"
+)
+
+if [[ "${COMMAND}" == "update" ]]; then
+  echo -e "${BOLD}CLEANUP deprecated files${RESET}"
+  _any_removed=false
+  for _file in "${DEPRECATED_FILES[@]}"; do
+    if [[ -f "${WORKSPACE_DIR}/${_file}" ]]; then
+      rm "${WORKSPACE_DIR}/${_file}"
+      echo -e "${GREEN}REMOVED${RESET} ${_file}"
+      (( updated++ )) || true
+      _any_removed=true
+    fi
+  done
+  [[ "${_any_removed}" == false ]] && echo -e "·       nothing to remove"
+  echo ""
+fi
+
+# ── NEVER-TOUCH files (created once, never overwritten) ───────────────────────
+
 echo -e "${BOLD}NEVER-TOUCH files (created once, never overwritten)${RESET}"
+process_never_touch ".devcontainer/docker-compose.project.yml"
 process_never_touch ".devcontainer/docker-compose.local.yml"
+process_never_touch ".devcontainer/scripts/setup-devcontainer.project.sh"
 process_never_touch ".devcontainer/scripts/setup-devcontainer.local.sh"
-process_never_touch ".devcontainer/configs/.env.local"
+process_never_touch ".env.project"
+process_never_touch "justfile.project"
 process_never_touch "justfile.local"
-process_never_touch ".gitignore"
 process_never_touch "README.md"
+# Auto-discover .gitignore files in configs/ and cache/ from template
+while IFS= read -r -d '' _gi; do
+  process_never_touch "${_gi#"${TEMPLATE_DIR}"/}"
+done < <(find "${TEMPLATE_DIR}/.devcontainer/configs" "${TEMPLATE_DIR}/.devcontainer/cache" -name '.gitignore' -print0 2>/dev/null | sort -z)
 echo ""
 
 # ── Lockfile ──────────────────────────────────────────────────────────────────

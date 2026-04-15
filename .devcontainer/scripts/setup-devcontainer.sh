@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # ── Shell plugins ─────────────────────────────────────────────────────────────
 
 if [[ -d "${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}"/plugins/zsh-autosuggestions ]]; then
@@ -18,12 +20,8 @@ fi
 
 mkdir -p ~/.zsh/completions
 
-if [[ -f ~/.zsh/completions/_just ]]; then
-  echo "[INFO] just completions already installed"
-else
-  echo "[INFO] Installing just completions"
-  curl -o ~/.zsh/completions/_just https://raw.githubusercontent.com/casey/just/master/completions/just.zsh
-fi
+echo "[INFO] Generating just completions from local binary"
+just --completions zsh > ~/.zsh/completions/_just
 
 # ── Optional tools (update only installation is handled by the Dockerfile) ──
 
@@ -109,12 +107,21 @@ fi
 # ── Project-specific setup ────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_SETUP="${SCRIPT_DIR}/setup-devcontainer.project.sh"
 LOCAL_SETUP="${SCRIPT_DIR}/setup-devcontainer.local.sh"
 
+if [[ -f "${PROJECT_SETUP}" ]]; then
+  echo "[INFO] Running project setup: ${PROJECT_SETUP}"
+  # shellcheck source=/dev/null
+  source "${PROJECT_SETUP}"
+else
+  echo "[INFO] No project setup found (${PROJECT_SETUP}), skipping"
+fi
+
 if [[ -f "${LOCAL_SETUP}" ]]; then
-  echo "[INFO] Running project-specific setup: ${LOCAL_SETUP}"
+  echo "[INFO] Running local setup overrides: ${LOCAL_SETUP}"
   # shellcheck source=/dev/null
   source "${LOCAL_SETUP}"
 else
-  echo "[INFO] No project-specific setup found (${LOCAL_SETUP}), skipping"
+  echo "[INFO] No local setup overrides found (${LOCAL_SETUP}), skipping"
 fi

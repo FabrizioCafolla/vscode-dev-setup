@@ -1,193 +1,146 @@
 # vscode-dev-setup
 
-A GitHub template repository for consistent, fast, and modular DevContainer environments with AI tooling built in.
+Opinionated GitHub template for fast, reproducible DevContainer environments with optional AI tooling.
 
-> **Opinionated by design.** This template reflects a personal setup and preferences. Use it as a starting point, then adapt it to your needs once you clone it, it's yours to modify.
+> **Opinionated by design.** Reflects a personal setup — use it as a starting point and adapt it once cloned.
 
 ---
+
+## Why
+
+Standard devcontainer features compile tools from source (slow, non-deterministic). This template uses multi-stage Docker builds with pre-built runtimes: Python and Node.js are copied from their official images. First build takes ~30s instead of minutes.
+
+Configuration is split into three layers:
+
+- **BASE** — template-managed files (`Dockerfile`, `docker-compose.yml`, `justfile`, etc.), updated via `vscode-dev-setup-cli.sh`
+- **PROJECT** — `*.project` files committed to git, shared across the team
+- **LOCAL** — `*.local` files gitignored, personal dev overrides
 
 ## What's included
 
-### DevContainer
+| | Tool | Notes |
+|--|------|-------|
+| Runtime | Python 3.13 | via [uv](https://github.com/astral-sh/uv), multi-stage COPY |
+| Runtime | Node.js 24 | multi-stage COPY |
+| Shell | zsh + Oh My Zsh | autosuggestions, syntax-highlighting, completions |
+| Tasks | [just](https://github.com/casey/just) | see `just help` |
+| Hooks | pre-commit | installed on first `just setup` |
 
-| Component       | Details                                                           |
-| --------------- | ----------------------------------------------------------------- |
-| Base image      | `mcr.microsoft.com/devcontainers/base:trixie`                     |
-| Python          | 3.13 via [uv](https://github.com/astral-sh/uv) (multi-stage COPY) |
-| Node.js         | 24 via multi-stage COPY                                           |
-| Terraform       | 1.14 via multi-stage COPY                                         |
-| AWS CLI         | via Dockerfile (ARG-gated)                                        |
-| GitHub CLI      | via devcontainer feature                                          |
-| just            | task runner                                                       |
-| pre-commit      | code quality hooks                                                |
-| zsh + Oh My Zsh | with autosuggestions and syntax highlighting                      |
+**Optional tools** (disabled by default, enable via build args):
 
-### AI tools (optional, ARG-gated)
+| Tool | Build ARG |
+|------|-----------|
+| [Claude Code CLI](https://claude.ai/code) | `CLAUDE_CLI_ENABLE=true` |
+| [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli) | `GITHUB_COPILOT_CLI_ENABLE=true` |
+| [AWS CLI](https://aws.amazon.com/cli/) | `AWS_CLI_ENABLE=true` |
+| [OpenSpec](https://github.com/fission-ai/openspec) | `OPENSPEC_ENABLE=true` |
+| [OpenCode](https://opencode.ai/) | `OPENCODE_ENABLE=true` |
+| [Kind](https://kind.sigs.k8s.io/) | `KIND_ENABLE=true` |
+| [LLaMA.cpp](https://github.com/ggml-org/llama.cpp) | `LLAMA_CPP_ENABLE=true` |
+| [Terraform](https://www.terraform.io/) (via [tfenv](https://github.com/tfutils/tfenv)) | `TERRAFORM_ENABLE=true` |
 
-| Tool                                                              | Default  | Build ARG                        |
-| ----------------------------------------------------------------- | -------- | -------------------------------- |
-| [AWS CLI](https://aws.amazon.com/cli/)                            | disabled | `AWS_CLI_ENABLE=true`            |
-| [Claude Code CLI](https://claude.ai/code)                         | disabled | `CLAUDE_CLI_ENABLE=true`         |
-| [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli) | disabled | `GITHUB_COPILOT_CLI_ENABLE=true` |
-| [OpenSpec](https://github.com/fission-ai/openspec)                | disabled | `OPENSPEC_ENABLE=true`           |
-| [OpenCode](https://opencode.ai/)                                  | disabled | `OPENCODE_ENABLE=true`           |
-| [Kind](https://kind.sigs.k8s.io/)                                 | disabled | `KIND_ENABLE=true`               |
-| [LLaMA.cpp](https://github.com/ggml-org/llama.cpp)                | disabled | `LLAMA_CPP_ENABLE=true`          |
+## Getting started
 
-### VSCode
-
-Pre-configured `.vscode/` with settings, recommended extensions, MCP config, and tasks.
-
----
-
-## Requirements
-
-- [Docker](https://docs.docker.com/get-docker/)
-- [Visual Studio Code](https://code.visualstudio.com/) + [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-
----
-
-## Usage
-
-### 1. Create from template
-
-Click **Use this template** on GitHub, or:
+**Requirements:** Docker, VSCode + [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
 ```bash
 gh repo create my-project --template FabrizioCafolla/vscode-dev-setup
-```
-
-### 2. Open in DevContainer
-
-Open the folder in VSCode and click **Reopen in Container** when prompted, or run:
-
-```
-Dev Containers: Reopen in Container
+# Open in VSCode → "Reopen in Container"
 ```
 
 The container builds and `just setup` runs automatically on start.
 
-### 3. Authenticate tools
-
 ```bash
-just gh-login        # GitHub CLI
-just claude-login    # Claude Code
-just aws-login-sso <session>  # AWS SSO (if needed)
+just help                        # list all commands
+just gh-login                    # authenticate GitHub CLI
+just claude-login                # authenticate Claude Code
+just aws-login-sso <session>     # authenticate AWS SSO
 ```
-
----
-
-## Architecture: composition model
-
-The template uses a layered model. A **base layer** (template-managed) and a **local layer** (project-managed) merge at runtime via Docker Compose.
-
-```
-docker-compose.yml          ← base (REPLACE on update)
-docker-compose.local.yml    ← project overrides (NEVER-TOUCH)
-         │
-         └─ Compose merge → running DevContainer
-```
-
-### File contract
-
-| Category        | Files                                                                                                  | Behavior                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| **REPLACE**     | `Dockerfile`, `docker-compose.yml`, `setup-devcontainer.sh`, `.zshrc`, `justfile`                      | Overwritten on `update`                                                                   |
-| **MARKER**      | `AGENTS.md`, `.pre-commit-config.yaml`                                                                 | Only the block between `[vscode-dev-setup:START]` and `[vscode-dev-setup:END]` is updated |
-| **DIFF-ONLY**   | `devcontainer.json`                                                                                    | Diff shown, not applied automatically; use `--force` to override                          |
-| **NEVER-TOUCH** | `docker-compose.local.yml`, `setup-devcontainer.local.sh`, `justfile.local`, `.gitignore`, `README.md` | Created once, never overwritten                                                           |
-
----
 
 ## Customization
 
 ### Enable optional tools
 
-Edit `.devcontainer/docker-compose.local.yml`:
+Edit `.devcontainer/docker-compose.project.yml` for team-wide settings:
 
 ```yaml
 services:
   devcontainer:
     build:
       args:
-        KIND_ENABLE: true
-        LLAMA_CPP_ENABLE: true
-        OPENCODE_ENABLE: true
+        CLAUDE_CLI_ENABLE: "true"
+        AWS_CLI_ENABLE: "true"
 ```
 
-### Add extra volumes
+Or `.devcontainer/docker-compose.local.yml` for local-only overrides (gitignored).
 
-```yaml
-services:
-  devcontainer:
-    volumes:
-      - /path/to/extra:/workspace/extra:cached
-```
+### Post-start setup
 
-### Add project-specific post-start setup
+- `.devcontainer/scripts/setup-devcontainer.project.sh` — team-wide, committed
+- `.devcontainer/scripts/setup-devcontainer.local.sh` — local dev, gitignored
 
-Edit `.devcontainer/scripts/setup-devcontainer.local.sh`:
+### Just commands
 
-```bash
-# Install project dependencies
-uv pip install -r requirements.txt
+- `justfile.project` — team commands, committed
+- `justfile.local` — local commands, gitignored
 
-# Start local services
-docker compose -f docker-compose.dev.yml up -d
-```
+### Environment variables
 
-### Add project-specific just commands
+- `.env.project` — shared env vars, committed
+- `.env` — local overrides, gitignored
 
-Edit `justfile.local`:
-
-```just
-[group('dev')]
-run:
-  @python -m myapp
-```
-
----
+Both are sourced automatically in each shell via `.zshrc`.
 
 ## Updating from template
 
-Check what changed upstream (no modifications):
+```bash
+bash vscode-dev-setup-cli.sh check     # see what changed upstream
+bash vscode-dev-setup-cli.sh update    # apply updates
+```
+
+Or via curl (no local clone needed):
 
 ```bash
-bash cli.sh check
-# or via curl:
-curl -fsSL https://raw.githubusercontent.com/FabrizioCafolla/vscode-dev-setup/main/cli.sh | bash -s -- check
+curl -fsSL https://raw.githubusercontent.com/FabrizioCafolla/vscode-dev-setup/main/vscode-dev-setup-cli.sh | bash -s -- check
+curl -fsSL https://raw.githubusercontent.com/FabrizioCafolla/vscode-dev-setup/main/vscode-dev-setup-cli.sh | bash -s -- update
 ```
 
-Apply updates:
+Options: `--ref REF`, `--force`, `--workspace DIR`
 
-```bash
-bash cli.sh update
-# or via curl:
-curl -fsSL https://raw.githubusercontent.com/FabrizioCafolla/vscode-dev-setup/main/cli.sh | bash -s -- update
+### File contract
+
+| Category | Files | Behavior |
+|----------|-------|----------|
+| REPLACE | `Dockerfile`, `docker-compose.yml`, `setup-devcontainer.sh`, `justfile`, `.zshrc`, `vscode-dev-setup-cli.sh` | Overwritten on `update` |
+| MARKER | `AGENTS.md`, `.pre-commit-config.yaml` | Only the `[vscode-dev-setup:START/END]` block is updated |
+| DIFF-ONLY | `devcontainer.json` | Diff shown, not auto-applied (`--force` to override) |
+| NEVER-TOUCH | `*.project`, `*.local`, `.gitignore`, `README.md` | Created once if missing, never overwritten |
+
+On `update`, deprecated files from previous releases are removed automatically.
+
+## Project structure
+
 ```
-
-Options:
-
-```
---ref REF      Use a specific git ref (default: main)
---force        Force-replace devcontainer.json (DIFF-ONLY file)
---workspace    Target directory (default: current dir)
-```
-
----
-
-## scaffold-ai
-
-[scaffold-ai](https://github.com/FabrizioCafolla/scaffold-ai) is managed at runtime not tracked in the repository.
-
-```bash
-just scaffold-ai-cli -h  # run with args
-```
-
----
-
-## Available commands
-
-```bash
-just help
+.devcontainer/
+├── Dockerfile                              # REPLACE
+├── docker-compose.yml                      # REPLACE
+├── docker-compose.project.yml              # NEVER-TOUCH (team overrides)
+├── docker-compose.local.yml                # NEVER-TOUCH (local overrides, gitignored)
+├── devcontainer.json                       # DIFF-ONLY
+├── configs/
+│   ├── .zshrc                              # REPLACE
+│   └── .aws/
+├── cache/                                  # mounted volumes (.claude, .copilot, .llama)
+└── scripts/
+    ├── setup-devcontainer.sh               # REPLACE
+    ├── setup-devcontainer.project.sh       # NEVER-TOUCH
+    └── setup-devcontainer.local.sh         # NEVER-TOUCH (gitignored)
+justfile                                    # REPLACE
+justfile.project                            # NEVER-TOUCH
+justfile.local                              # NEVER-TOUCH (gitignored)
+.env.project                                # NEVER-TOUCH
+.env                                        # gitignored
+vscode-dev-setup-cli.sh                                      # REPLACE (template update script)
+AGENTS.md                                   # MARKER
+.pre-commit-config.yaml                     # MARKER
 ```

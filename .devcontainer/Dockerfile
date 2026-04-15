@@ -1,11 +1,10 @@
+# [vscode-dev-setup:START]
 ARG DEVCONTAINER_VERSION=trixie
 ARG UV_VERSION=latest
 ARG NODE_VERSION=24
-ARG TERRAFORM_VERSION=1.14
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv-src
 FROM node:${NODE_VERSION}-slim AS node-src
-FROM hashicorp/terraform:${TERRAFORM_VERSION} AS terraform-src
 
 # ── Base stage: OS packages + language runtimes ───────────────────────────────
 FROM mcr.microsoft.com/devcontainers/base:${DEVCONTAINER_VERSION} AS base
@@ -13,7 +12,7 @@ FROM mcr.microsoft.com/devcontainers/base:${DEVCONTAINER_VERSION} AS base
 USER root
 
 # Docker BuildKit populates TARGETARCH (amd64|arm64) and TARGETOS (linux) at build time
-ARG TARGETARCH=amd64
+ARG TARGETARCH=arm64
 ARG TARGETOS=linux
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -48,33 +47,49 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
     && ln -sf /usr/local/lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack
 
-COPY --from=terraform-src /bin/terraform /usr/local/bin/terraform
-
 # ── Tools stage: optional ARG-gated tools ────────────────────────────────────
 FROM base AS tools
 
 USER root
 
 # Redeclare platform args each stage has its own scope in Docker BuildKit
-ARG TARGETARCH=amd64
+ARG TARGETARCH=arm64
 ARG TARGETOS=linux
 
 ## [TOOLS] Enable or disable tools with build args
-ARG CLAUDE_CLI_ENABLE=true
-ARG GITHUB_COPILOT_CLI_ENABLE=true
+ARG CLAUDE_CLI_ENABLE=false
 ARG OPENCODE_ENABLE=false
-ARG OPENSPEC_ENABLE=true
-ARG AWS_CLI_ENABLE=true
+ARG OPENSPEC_ENABLE=false
+ARG AWS_CLI_ENABLE=false
+ARG GITHUB_COPILOT_CLI_ENABLE=false
+ARG GH_CLI_ENABLE=false
 ARG KIND_ENABLE=false
 ARG LLAMA_CPP_ENABLE=false
+ARG TERRAFORM_ENABLE=false
+ARG TERRAFORM_VERSION=1.14.8
 
 ENV CLAUDE_CLI_ENABLE=${CLAUDE_CLI_ENABLE}
 ENV GITHUB_COPILOT_CLI_ENABLE=${GITHUB_COPILOT_CLI_ENABLE}
 ENV OPENCODE_ENABLE=${OPENCODE_ENABLE}
 ENV OPENSPEC_ENABLE=${OPENSPEC_ENABLE}
 ENV AWS_CLI_ENABLE=${AWS_CLI_ENABLE}
+ENV GH_CLI_ENABLE=${GH_CLI_ENABLE}
 ENV KIND_ENABLE=${KIND_ENABLE}
 ENV LLAMA_CPP_ENABLE=${LLAMA_CPP_ENABLE}
+ENV TERRAFORM_ENABLE=${TERRAFORM_ENABLE}
+ENV TFENV_ROOT=/opt/tfenv
+
+# [INSTALL] GitHub CLI
+RUN if [ "$GH_CLI_ENABLE" = "true" ]; then \
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+            | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+        && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+            | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+        && apt-get update \
+        && apt-get install -y --no-install-recommends gh \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi
+# ---
 
 # [INSTALL] AWS CLI
 # TARGETARCH amd64→x86_64, arm64→aarch64
@@ -172,7 +187,19 @@ RUN if [ "$LLAMA_CPP_ENABLE" = "true" ]; then \
     fi
 # ---
 
-# ── VSCode stage: final devcontainer target ───────────────────────────────────
+# [INSTALL] Terraform (via tfenv — allows switching versions inside the container)
+RUN if [ "$TERRAFORM_ENABLE" = "true" ]; then \
+        git clone --depth=1 https://github.com/tfutils/tfenv.git "${TFENV_ROOT}" \
+        && ln -sf "${TFENV_ROOT}/bin/tfenv"     /usr/local/bin/tfenv \
+        && ln -sf "${TFENV_ROOT}/bin/terraform" /usr/local/bin/terraform \
+        && tfenv install "${TERRAFORM_VERSION}" \
+        && tfenv use     "${TERRAFORM_VERSION}"; \
+    fi
+# ---
+# [vscode-dev-setup:END]
+
+# ── Your stage: add your own packages, tools, and configuration ───────────────
+# This section is never touched by the template.
 FROM tools AS vscode
 
 USER root
